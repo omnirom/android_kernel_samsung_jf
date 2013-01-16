@@ -482,7 +482,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	unsigned long mask, pfn, pageno, start = 0;
 	struct cma *cma = dev_get_cma_area(dev);
 	struct page *page = NULL;
-	int ret = 0;
+	int ret;
 	int tries = 0;
 
 	if (!cma || !cma->count)
