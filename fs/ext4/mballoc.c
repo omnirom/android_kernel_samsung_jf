@@ -4625,43 +4625,38 @@ do_more:
 	if (err)
 		goto error_return;
 #ifdef AGGRESSIVE_CHECK
-	{
-		int i;
-		for (i = 0; i < count_clusters; i++)
-			BUG_ON(!mb_test_bit(bit + i, bitmap_bh->b_data));
-	}
+        {
+                int i;
+                for (i = 0; i < count_clusters; i++)
+                        BUG_ON(!mb_test_bit(bit + i, bitmap_bh->b_data));
+        }
 #endif
-	trace_ext4_mballoc_free(sb, inode, block_group, bit, count_clusters);
+        trace_ext4_mballoc_free(sb, inode, block_group, bit, count_clusters);
 
-	err = ext4_mb_load_buddy(sb, block_group, &e4b);
-	if (err)
-		goto error_return;
+        err = ext4_mb_load_buddy(sb, block_group, &e4b);
+        if (err)
+                goto error_return;
 
-	if ((flags & EXT4_FREE_BLOCKS_METADATA) && ext4_handle_valid(handle)) {
-		struct ext4_free_data *new_entry;
-		/*
-		 * blocks being freed are metadata. these blocks shouldn't
-		 * be used until this transaction is committed
-		 */
-	retry:
-		new_entry = kmem_cache_alloc(ext4_free_data_cachep, GFP_NOFS);
-		if (!new_entry) {
-			/*
-			 * We use a retry loop because
-			 * ext4_free_blocks() is not allowed to fail.
-			 */
-			cond_resched();
-			congestion_wait(BLK_RW_ASYNC, HZ/50);
-			goto retry;
-		}
-		new_entry->efd_start_cluster = bit;
-		new_entry->efd_group = block_group;
-		new_entry->efd_count = count_clusters;
-		new_entry->efd_tid = handle->h_transaction->t_tid;
+        if ((flags & EXT4_FREE_BLOCKS_METADATA) && ext4_handle_valid(handle)) {
+                struct ext4_free_data *new_entry;
+                /*
+                 * blocks being freed are metadata. these blocks shouldn't
+                 * be used until this transaction is committed
+                 */
+                new_entry = kmem_cache_alloc(ext4_free_data_cachep, GFP_NOFS);
+                if (!new_entry) {
+                        ext4_mb_unload_buddy(&e4b);
+                        err = -ENOMEM;
+                        goto error_return;
+                }
+                new_entry->efd_start_cluster = bit;
+                new_entry->efd_group = block_group;
+                new_entry->efd_count = count_clusters;
+                new_entry->efd_tid = handle->h_transaction->t_tid;
 
-		ext4_lock_group(sb, block_group);
-		mb_clear_bits(bitmap_bh->b_data, bit, count_clusters);
-		ext4_mb_free_metadata(handle, &e4b, new_entry);
+                ext4_lock_group(sb, block_group);
+                mb_clear_bits(bitmap_bh->b_data, bit, count_clusters);
+                ext4_mb_free_metadata(handle, &e4b, new_entry);
 	} else {
 		/* need to update group_info->bb_free and bitmap
 		 * with group lock held. generate_buddy look at
