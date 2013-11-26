@@ -1060,7 +1060,7 @@ int msm_server_v4l2_subscribe_event(struct v4l2_fh *fh,
 		sub->type = V4L2_EVENT_PRIVATE_START + MSM_CAM_RESP_CTRL;
 		D("sub->type start = 0x%x\n", sub->type);
 		do {
-			rc = v4l2_event_subscribe(fh, sub, 30);
+			rc = v4l2_event_subscribe(fh, sub, 100);
 			if (rc < 0) {
 				D("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
@@ -1077,7 +1077,7 @@ int msm_server_v4l2_subscribe_event(struct v4l2_fh *fh,
 			V4L2_EVENT_PRIVATE_START + MSM_SVR_RESP_MAX);
 	} else {
 		D("sub->type not V4L2_EVENT_ALL = 0x%x\n", sub->type);
-		rc = v4l2_event_subscribe(fh, sub, 30);
+		rc = v4l2_event_subscribe(fh, sub, 100);
 		if (rc < 0)
 			D("%s: failed for evtType = 0x%x, rc = %d\n",
 						__func__, sub->type, rc);
@@ -1351,6 +1351,15 @@ static long msm_ioctl_server(struct file *file, void *fh,
 		}
 
 		mutex_lock(&g_server_dev.server_queue_lock);
+
+		if(u_isp_event.isp_data.ctrl.queue_idx < 0 ||
+		u_isp_event.isp_data.ctrl.queue_idx >= MAX_NUM_ACTIVE_CAMERA) {
+			pr_err("%s: Invalid index %d\n", __func__,
+				u_isp_event.isp_data.ctrl.queue_idx);
+			rc = -EINVAL;
+			return rc;
+		}
+
 		if (!g_server_dev.server_queue
 			[u_isp_event.isp_data.ctrl.queue_idx].queue_active) {
 			pr_err("%s: Invalid queue\n", __func__);
@@ -1546,9 +1555,9 @@ int msm_server_update_sensor_info(struct msm_cam_v4l2_device *pcam,
 	  device info*/
 	snprintf(pcam->media_dev.serial,
 			sizeof(pcam->media_dev.serial),
-			"%s-%d-%d", QCAMERA_NAME,
+			"%s-%d-%d-%d", QCAMERA_NAME,
 			sdata->sensor_platform_info->mount_angle,
-			sdata->camera_type);
+			sdata->camera_type,sdata->sensor_type);
 
 	g_server_dev.camera_info.num_cameras++;
 	g_server_dev.mctl_node_info.num_mctl_nodes++;
@@ -2621,6 +2630,7 @@ int msm_server_open_client(int *p_qidx)
 		MAX_SERVER_PAYLOAD_LENGTH, GFP_KERNEL);
 	if (!queue->ctrl_data) {
 		pr_err("%s: Could not find memory\n", __func__);
+		mutex_unlock(&g_server_dev.server_lock);
 		return -ENOMEM;
 	}
 	msm_queue_init(&queue->ctrl_q, "control");
