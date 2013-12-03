@@ -125,6 +125,7 @@
  * The current exported interfaces for gathering environmental noise
  * from the devices are:
  *
+ *  void add_device_randomness(const void *buf, unsigned int size);
  * 	void add_input_randomness(unsigned int type, unsigned int code,
  *                                unsigned int value);
  * 	void add_interrupt_randomness(int irq);
@@ -132,6 +133,14 @@
  *
  * add_input_randomness() uses the input layer interrupt timing, as well as
  * the event type information from the hardware.
+ *
+ * add_device_randomness() is for adding data to the random pool that
+ * is likely to differ between two devices (or possibly even per boot).
+ * This would be things like MAC addresses or serial numbers, or the
+ * read-out of the RTC. This does *not* add any actual entropy to the
+ * pool, but it initializes the pool to different values for devices
+ * that might otherwise be identical and have very little entropy
+ * available to them (particularly common in the embedded world).
  *
  * add_interrupt_randomness() uses the inter-interrupt timing as random
  * inputs to the entropy pool.  Note that not all interrupts are good
@@ -608,6 +617,25 @@ static void set_timer_rand_state(unsigned int irq,
 	desc->timer_rand_state = state;
 }
 #endif
+
+/*
+ * Add device- or boot-specific data to the input and nonblocking
+ * pools to help initialize them to unique values.
+ *
+ * None of this adds any entropy, it is meant to avoid the
+ * problem of the nonblocking pool having similar initial state
+ * across largely identical devices.
+ */
+void add_device_randomness(const void *buf, unsigned int size)
+{
+  unsigned long time = get_cycles() ^ jiffies;
+
+  mix_pool_bytes(&input_pool, buf, size);
+  mix_pool_bytes(&input_pool, &time, sizeof(time));
+  mix_pool_bytes(&nonblocking_pool, buf, size);
+  mix_pool_bytes(&nonblocking_pool, &time, sizeof(time));
+}
+EXPORT_SYMBOL(add_device_randomness);
 
 static struct timer_rand_state input_timer_state;
 
