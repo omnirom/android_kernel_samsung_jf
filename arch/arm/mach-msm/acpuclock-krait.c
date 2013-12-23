@@ -42,6 +42,13 @@
 #ifdef CONFIG_SEC_DEBUG_DCVS_LOG
 #include <mach/sec_debug.h>
 #endif
+
+#ifdef CONFIG_LOW_CPUCLOCKS
+#define FREQ_TABLE_SIZE		39
+#else
+#define FREQ_TABLE_SIZE		35
+#endif
+
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
@@ -943,7 +950,7 @@ static void __init bus_init(const struct l2_level *l2_level)
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[NR_CPUS][35];
+static struct cpufreq_frequency_table freq_table[NR_CPUS][FREQ_TABLE_SIZE];
 extern int console_batt_stat;
 static void __init cpufreq_table_init(void)
 {
@@ -955,7 +962,7 @@ static void __init cpufreq_table_init(void)
 		for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0
 				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
 			if (drv.acpu_freq_tbl[i].use_for_scaling) {
-#ifdef CONFIG_SEC_FACTORY 
+#ifdef CONFIG_SEC_FACTORY
 				// if factory_condition, set the core freq limit.
 				//QMCK
 				if (console_set_on_cmdline && drv.acpu_freq_tbl[i].speed.khz > 1000000) {
@@ -964,7 +971,7 @@ static void __init cpufreq_table_init(void)
 					}
 				}
 				//QMCK
-#endif		
+#endif
 				freq_table[cpu][freq_cnt].index = freq_cnt;
 				freq_table[cpu][freq_cnt].frequency
 					= drv.acpu_freq_tbl[i].speed.khz;
